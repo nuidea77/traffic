@@ -10,7 +10,9 @@
     "sync": "cap sync",
     "android": "cap run android",
     "ios": "cap run ios",
-    "build:android": "cd android && ./gradlew assembleDebug"
+    "build:android": "cd android && ./gradlew assembleDebug",
+    "shots": "node tools/screenshot.mjs",
+    "shots:demo": "node tools/screenshot.mjs --demo"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

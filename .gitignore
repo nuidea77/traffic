@@ -19,3 +19,6 @@ ios/DerivedData/
 
 # ML сургалтын өгөгдөл (generate_data.py-аар дахин үүсгэнэ)
 ml/data/*.csv
+
+# Скриншотын гаралт
+shots/
