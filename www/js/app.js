@@ -67,10 +67,10 @@ function autoTrafficLevel() {
 }
 
 const LEVEL_NAMES = {
-  free: "🟢 Чөлөөтэй",
-  normal: "🟡 Хэвийн",
-  busy: "🟠 Ачаалалтай",
-  jam: "🔴 Түгжрэлтэй",
+  free: "Чөлөөтэй",
+  normal: "Хэвийн",
+  busy: "Ачаалалтай",
+  jam: "Түгжрэлтэй",
 };
 
 /**
@@ -82,7 +82,7 @@ const LEVEL_NAMES = {
 function effectiveFactors() {
   if (state.level === "auto" && TrafficModel.ready) {
     const { dow, hour } = ubNow();
-    return { factors: TrafficModel.predictFactors(dow, hour), label: "🤖 AI таамаглал" };
+    return { factors: TrafficModel.predictFactors(dow, hour), label: "AI таамаглал" };
   }
   const level = state.level === "auto" ? autoTrafficLevel() : state.level;
   return { factors: levelFactors(level), label: LEVEL_NAMES[level] };
@@ -99,7 +99,7 @@ function updateAutoInfo() {
     const f = TrafficModel.predictFactors(dow, hour);
     const pct = (x) => Math.round(x * 100);
     info.textContent =
-      `🤖 AI: одоо гол зам ${pct(f.major)}%, дунд зам ${pct(f.mid)}%, ` +
+      `AI: одоо гол зам ${pct(f.major)}%, дунд зам ${pct(f.mid)}%, ` +
       `хорооллын зам ${pct(f.minor)}% хурдтай гэж таамаглаж байна.`;
   } else {
     info.textContent = `Одоо УБ-д: ${LEVEL_NAMES[autoTrafficLevel()]} гэж тооцож байна.`;
@@ -225,7 +225,12 @@ async function geocode(query, which) {
     for (const item of items) {
       const btn = document.createElement("button");
       btn.className = "search-result";
-      btn.textContent = (which === "start" ? "🟢 " : "🔴 ") + item.display_name;
+      const icon = document.createElement("i");
+      icon.className = which === "start"
+        ? "fa-solid fa-circle-dot result-start"
+        : "fa-solid fa-location-dot result-end";
+      btn.appendChild(icon);
+      btn.appendChild(document.createTextNode(" " + item.display_name));
       btn.addEventListener("click", () => {
         const latlng = L.latLng(+item.lat, +item.lon);
         setPoint(which, latlng);
@@ -381,7 +386,7 @@ function drawResults(smart, main, mainTimeNow, factors, label) {
   $("saved-min").textContent = savedMin >= 1 ? `~${savedMin} мин` : "—";
   const savingsEl = $("savings");
   if (savedMin >= 1) {
-    savingsEl.textContent = `✨ Жижиг замаар тойрсноор ~${savedMin} минут хэмнэнэ (${label})`;
+    savingsEl.textContent = `Жижиг замаар тойрсноор ~${savedMin} минут хэмнэнэ (${label})`;
   } else if (factors.major >= 0.7) {
     savingsEl.textContent = "Одоо түгжрэл багатай тул гол замаар явахад хангалттай хурдан.";
   } else {
@@ -399,7 +404,7 @@ $("card-toggle").addEventListener("click", () => {
 
 $("route-btn").addEventListener("click", calcRoute);
 
-/* ---------- 🤖 AI загвар ба бодит өгөгдөл цуглуулалт ---------- */
+/* ---------- AI загвар ба бодит өгөгдөл цуглуулалт ---------- */
 
 function updateCollectInfo() {
   const n = Calibration.sampleCount();
@@ -412,7 +417,7 @@ function updateCollectInfo() {
 TrafficModel.load()
   .then((meta) => {
     $("model-status").textContent =
-      `Идэвхтэй ✅ — ${meta.n_samples.toLocaleString()} хэмжилтээр сургасан, ` +
+      `Идэвхтэй — ${meta.n_samples.toLocaleString()} хэмжилтээр сургасан, ` +
       `алдаа (RMSE) ±${Math.round(meta.val_rmse * 100)}%. ` +
       `Гараг, цагаас замын ангилал бүрийн хурдыг таамаглана.`;
     updateAutoInfo();
@@ -480,7 +485,7 @@ $("drive-btn").addEventListener("click", async () => {
   const btn = $("drive-btn");
   if (drive.watchId != null || drive.capWatchId != null) {
     stopDrive();
-    btn.textContent = "🚙 Хэмжилт эхлүүлэх";
+    btn.innerHTML = '<i class="fa-solid fa-car-side"></i> Хэмжилт эхлүүлэх';
     btn.classList.remove("active");
     return;
   }
@@ -490,7 +495,7 @@ $("drive-btn").addEventListener("click", async () => {
   }
   try {
     await startDrive();
-    btn.textContent = "⏹ Хэмжилт зогсоох";
+    btn.innerHTML = '<i class="fa-solid fa-stop"></i> Хэмжилт зогсоох';
     btn.classList.add("active");
     setStatus("");
   } catch (err) {
@@ -500,7 +505,7 @@ $("drive-btn").addEventListener("click", async () => {
 
 $("export-btn").addEventListener("click", () => {
   if (Calibration.sampleCount() === 0) {
-    setStatus("Экспортлох хэмжилт алга — эхлээд 🚙 горимоор цуглуул", true);
+    setStatus("Экспортлох хэмжилт алга — эхлээд жолоодлогын горимоор цуглуул", true);
     return;
   }
   const blob = new Blob([Calibration.exportCsv()], { type: "text/csv" });

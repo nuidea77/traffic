@@ -298,3 +298,17 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .credit { margin-top: 10px; font-size: 0.64rem; color: var(--card-muted); }
 
 .hidden { display: none !important; }
+
+/* ---------- Font Awesome icon тохиргоо ---------- */
+
+.chip i, #route-btn i, .icon-btn i { font-size: 0.85em; }
+.chip .fa-circle { font-size: 0.6em; vertical-align: 1px; }
+.lv-free { color: #2ecc71; }
+.lv-normal { color: #f1c40f; }
+.lv-busy { color: #e67e22; }
+.lv-jam { color: #ff5c5c; }
+.chip.active .fa-circle { color: inherit; }
+.result-start { color: var(--neon); }
+.result-end { color: #fff; }
+.card-arrow i { transform: rotate(45deg); }
+#ai-details summary i { margin-right: 4px; }

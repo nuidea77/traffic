@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>УБ Түгжрэлийн маршрут — Гэр хорооллын замаар тойрох</title>
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -17,34 +18,34 @@
     <div class="point-row">
       <span class="dot dot-start"></span>
       <input id="start-input" type="text" placeholder="Эхлэх цэг…" />
-      <button id="start-search" class="icon-btn" title="Хайх">🔍</button>
-      <button id="locate-btn" class="icon-btn" title="Миний байршлаас эхлэх">📍</button>
+      <button id="start-search" class="icon-btn" title="Хайх"><i class="fa-solid fa-magnifying-glass"></i></button>
+      <button id="locate-btn" class="icon-btn" title="Миний байршлаас эхлэх"><i class="fa-solid fa-location-crosshairs"></i></button>
     </div>
     <div class="point-row">
       <span class="dot dot-end"></span>
       <input id="end-input" type="text" placeholder="Очих цэг…" />
-      <button id="end-search" class="icon-btn" title="Хайх">🔍</button>
-      <button id="clear-btn" class="icon-btn" title="Цэгүүдийг арилгах">✕</button>
+      <button id="end-search" class="icon-btn" title="Хайх"><i class="fa-solid fa-magnifying-glass"></i></button>
+      <button id="clear-btn" class="icon-btn" title="Цэгүүдийг арилгах"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div id="search-results"></div>
 
     <div id="traffic-levels" class="chips">
-      <button data-level="auto"   class="level-btn chip active" title="AI загвар одоогийн гараг, цагаас түгжрэлийг таамаглана">🤖 AI</button>
-      <button data-level="free"   class="level-btn chip">🟢 Чөлөөтэй</button>
-      <button data-level="normal" class="level-btn chip">🟡 Хэвийн</button>
-      <button data-level="busy"   class="level-btn chip">🟠 Ачаалалтай</button>
-      <button data-level="jam"    class="level-btn chip">🔴 Түгжрэлтэй</button>
+      <button data-level="auto"   class="level-btn chip active" title="AI загвар одоогийн гараг, цагаас түгжрэлийг таамаглана"><i class="fa-solid fa-robot"></i> AI</button>
+      <button data-level="free"   class="level-btn chip"><i class="fa-solid fa-circle lv-free"></i> Чөлөөтэй</button>
+      <button data-level="normal" class="level-btn chip"><i class="fa-solid fa-circle lv-normal"></i> Хэвийн</button>
+      <button data-level="busy"   class="level-btn chip"><i class="fa-solid fa-circle lv-busy"></i> Ачаалалтай</button>
+      <button data-level="jam"    class="level-btn chip"><i class="fa-solid fa-circle lv-jam"></i> Түгжрэлтэй</button>
     </div>
     <p id="auto-level-info" class="mini"></p>
 
-    <button id="route-btn" disabled>Маршрут гаргах</button>
+    <button id="route-btn" disabled><i class="fa-solid fa-route"></i> Маршрут гаргах</button>
 
     <details id="ai-details">
-      <summary>🤖 AI загвар ба хэмжилт</summary>
+      <summary><i class="fa-solid fa-robot"></i> AI загвар ба хэмжилт</summary>
       <p id="model-status" class="mini">Загвар ачаалж байна…</p>
       <div class="chips">
-        <button id="drive-btn" class="chip">🚙 Хэмжилт эхлүүлэх</button>
-        <button id="export-btn" class="chip">⬇ CSV экспорт</button>
+        <button id="drive-btn" class="chip"><i class="fa-solid fa-car-side"></i> Хэмжилт эхлүүлэх</button>
+        <button id="export-btn" class="chip"><i class="fa-solid fa-download"></i> CSV экспорт</button>
       </div>
       <p id="collect-info" class="mini"></p>
     </details>
@@ -55,7 +56,7 @@
   <!-- Доод хөвөгч үр дүнгийн карт -->
   <div id="results" class="bottom-card hidden">
     <div class="card-head">
-      <div class="thumb">⚡</div>
+      <div class="thumb"><i class="fa-solid fa-bolt"></i></div>
       <div class="card-main">
         <div class="card-title">Ухаалаг маршрут</div>
         <div class="stats-row">
@@ -64,7 +65,7 @@
           <div class="stat"><span>Хэмнэлт</span><b id="saved-min">—</b></div>
         </div>
       </div>
-      <button id="card-toggle" class="card-arrow" title="Дэлгэрэнгүй">↗</button>
+      <button id="card-toggle" class="card-arrow" title="Дэлгэрэнгүй"><i class="fa-solid fa-arrow-up"></i></button>
     </div>
     <div id="card-details" class="hidden">
       <div id="smart-breakdown" class="breakdown"></div>
