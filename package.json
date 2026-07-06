@@ -1,0 +1,23 @@
+{
+  "name": "ub-traffic-router",
+  "version": "1.0.0",
+  "description": "Түгжрэлтэй үед гэр хороолол болон хорооллын жижиг замуудыг ашиглан хамгийн хурдан маршрут гаргадаг апп",
+  "private": true,
+  "scripts": {
+    "serve": "python3 -m http.server 8000 --directory www",
+    "sync": "cap sync",
+    "android": "cap run android",
+    "ios": "cap run ios",
+    "build:android": "cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/geolocation": "^7.0.0",
+    "@capacitor/ios": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
+    "leaflet": "1.9.4"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "appId": "mn.ub.trafficrouter",
+  "appName": "Түгжрэл тойрох",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

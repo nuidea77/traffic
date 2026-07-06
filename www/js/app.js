@@ -145,6 +145,39 @@ function clearRoutes() {
   }
 }
 
+/* ---------- Миний байршил (GPS) ---------- */
+
+/** Нэйтив апп дотор Capacitor Geolocation, хөтөч дээр navigator.geolocation ашиглана. */
+async function getCurrentPosition() {
+  const cap = window.Capacitor?.Plugins?.Geolocation;
+  if (cap) {
+    const pos = await cap.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  }
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error("Байршил тогтоох боломжгүй төхөөрөмж"));
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => reject(new Error("Байршил авч чадсангүй: " + err.message)),
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  });
+}
+
+$("locate-btn").addEventListener("click", async () => {
+  setStatus("Байршил тогтоож байна…");
+  try {
+    const { lat, lng } = await getCurrentPosition();
+    const latlng = L.latLng(lat, lng);
+    setPoint("start", latlng);
+    map.setView(latlng, 15);
+    setStatus("");
+    if (state.end) calcRoute();
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+});
+
 /* ---------- Хаягийн хайлт (Nominatim) ---------- */
 
 async function geocode(query, which) {

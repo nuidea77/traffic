@@ -1,7 +1,9 @@
 # 🚗 Түгжрэл тойрох маршрут — Улаанбаатар
 
 Түгжрэлтэй үед **гэр хороолол болон хорооллын доторх жижиг туслах замуудыг**
-ашиглан хамгийн хурдан явах маршрутыг гаргадаг вэб апп.
+ашиглан хамгийн хурдан явах маршрутыг гаргадаг апп. Вэб хувилбараас гадна
+[Capacitor](https://capacitorjs.com)-оор бүтээсэн **iOS болон Android**
+нэйтив апп болгон build хийж болно.
 
 ## Хэрхэн ажилладаг вэ?
 
@@ -37,17 +39,60 @@
 「🕐 Одоогийн цагаар」горимд Улаанбаатарын цагаар ажлын өдрийн
 07:30–10:00 ба 16:30–20:00 цагийг түгжрэлтэй гэж автоматаар тооцно.
 
-## Ажиллуулах
+## Вэб хувилбар ажиллуулах
 
-Build шаардлагагүй, цэвэр static сайт:
+Build шаардлагагүй, цэвэр static сайт (`www/` хавтаст):
 
 ```bash
-python3 -m http.server 8000
-# эсвэл: npx serve
+npm run serve
+# эсвэл: python3 -m http.server 8000 --directory www
 ```
 
 Дараа нь хөтчөөр <http://localhost:8000> нээнэ. (Overpass, Nominatim,
 OSM tile серверүүдэд хандах интернэт холболт шаардлагатай.)
+
+## 📱 Android апп build хийх
+
+Шаардлага: [Android Studio](https://developer.android.com/studio)
+(эсвэл Android SDK + JDK 21).
+
+```bash
+npm install
+npx cap sync android
+
+# Android Studio-гоор нээх:
+npx cap open android
+
+# эсвэл шууд командын мөрөөс APK build хийх:
+cd android && ./gradlew assembleDebug
+# APK: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Утсаа USB-ээр залгаад `npx cap run android` гэвэл шууд суулгаж ажиллуулна.
+
+## 📱 iOS апп build хийх
+
+Шаардлага: macOS, [Xcode](https://developer.apple.com/xcode/), CocoaPods
+(`sudo gem install cocoapods`).
+
+```bash
+npm install
+npx cap sync ios   # pod install-ийг автоматаар хийнэ
+npx cap open ios   # Xcode-оор нээгээд ▶ Run
+```
+
+Бодит төхөөрөмж дээр ажиллуулахад Apple Developer бүртгэлээр signing
+тохируулах шаардлагатай (Xcode → Signing & Capabilities).
+
+### Нэйтив аппын нэмэлт боломж
+
+- 📍 товч — GPS-ээр одоогийн байршлаа эхлэх цэг болгоно
+  (Capacitor Geolocation plugin, зөвшөөрлүүд Android manifest болон
+  iOS Info.plist-д нэмэгдсэн)
+- Leaflet библиотек локал (`www/vendor/`) багтсан тул CDN-ээс хамаарахгүй
+
+Вэб кодыг (`www/`) өөрчилсний дараа `npx cap sync` ажиллуулж native
+төслүүдэд хуулахаа мартав.
 
 ## Ашиглах
 
@@ -61,11 +106,15 @@ OSM tile серверүүдэд хандах интернэт холболт ш�
 
 | Файл | Үүрэг |
 |---|---|
-| `index.html` | UI бүтэц |
-| `css/style.css` | Загвар |
-| `js/graph.js` | Overpass-аас зам татах, граф байгуулах |
-| `js/router.js` | Түгжрэлийн жинтэй A* алгоритм |
-| `js/app.js` | Газрын зураг, UI, маршрутын харьцуулалт |
+| `www/index.html` | UI бүтэц |
+| `www/css/style.css` | Загвар |
+| `www/js/graph.js` | Overpass-аас зам татах, граф байгуулах |
+| `www/js/router.js` | Түгжрэлийн жинтэй A* алгоритм |
+| `www/js/app.js` | Газрын зураг, UI, GPS, маршрутын харьцуулалт |
+| `www/vendor/leaflet/` | Локал Leaflet библиотек |
+| `android/` | Android нэйтив төсөл (Capacitor) |
+| `ios/` | iOS нэйтив төсөл (Capacitor) |
+| `capacitor.config.json` | Аппын ID, нэр, webDir тохиргоо |
 
 ## Хязгаарлалт
 

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Түгжрэл тойрох</string>
+    <string name="title_activity_main">Түгжрэл тойрох</string>
+    <string name="package_name">mn.ub.trafficrouter</string>
+    <string name="custom_url_scheme">mn.ub.trafficrouter</string>
+</resources>
