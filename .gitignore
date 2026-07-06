@@ -16,3 +16,6 @@ ios/App/output/
 ios/DerivedData/
 
 .DS_Store
+
+# ML сургалтын өгөгдөл (generate_data.py-аар дахин үүсгэнэ)
+ml/data/*.csv

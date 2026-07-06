@@ -158,3 +158,5 @@ footer a { color: var(--muted); }
     padding-left: calc(18px + env(safe-area-inset-left));
   }
 }
+
+#drive-btn.active { background: var(--danger); }

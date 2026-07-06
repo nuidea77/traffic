@@ -37,7 +37,8 @@ const ROAD_CLASS = {
   track: "minor",
 };
 
-// Түгжрэлийн түвшин бүрд ангилал тус бүрийн хурдны коэффициент.
+// Гараар сонгох түвшин бүрийн хурдны коэффициент — AI загвар
+// ачаалагдаагүй эсвэл хэрэглэгч түвшнээ өөрөө сонгосон үеийн fallback.
 // jam үед гол зам 18% хурдтай (50 → ~9 км/ц мөлхөнө) байхад
 // хорооллын жижиг зам 75%-даа (25 → ~19 км/ц) явсаар байдаг.
 const CONGESTION = {
@@ -53,11 +54,16 @@ const JUNCTION_PENALTY = { free: 3, normal: 4, busy: 6, jam: 8 };
 
 const MAX_SPEED_MS = (70 * 1000) / 3600; // heuristic-д ашиглах дээд хурд
 
-/** Ирмэгийн бодит хурд, м/с */
-function edgeSpeed(edge, level) {
+/** Гараар сонгосон түвшнийг коэффициентийн объект болгоно. */
+function levelFactors(level) {
+  return { ...CONGESTION[level], junctionPenalty: JUNCTION_PENALTY[level] };
+}
+
+/** Ирмэгийн бодит хурд, м/с. factors = {major, mid, minor, junctionPenalty} */
+function edgeSpeed(edge, factors) {
   const base = BASE_SPEED[edge.highway] || 20;
   const cls = ROAD_CLASS[edge.highway] || "minor";
-  let speed = base * CONGESTION[level][cls];
+  let speed = base * factors[cls];
   // Гэр хорооллын шороон зам: хуурай үед ч удаан тул хурдыг бууруулна.
   if (/^(unpaved|dirt|ground|gravel|earth|sand|mud)/.test(edge.surface)) {
     speed *= 0.7;
@@ -66,8 +72,8 @@ function edgeSpeed(edge, level) {
 }
 
 /** Ирмэгийг туулах хугацаа, сек */
-function edgeTime(edge, level) {
-  return edge.dist / edgeSpeed(edge, level) + JUNCTION_PENALTY[level];
+function edgeTime(edge, factors) {
+  return edge.dist / edgeSpeed(edge, factors) + factors.junctionPenalty;
 }
 
 /** Хоёртын min-heap — том граф дээр хурдан ажиллуулахад хэрэгтэй. */
@@ -108,7 +114,7 @@ class MinHeap {
  * A* хайлт. Амжилттай бол маршрутын геометр, нийт зай/хугацаа,
  * замын ангиллаар задалсан статистикийг буцаана.
  */
-function findRoute(graph, startId, endId, level) {
+function findRoute(graph, startId, endId, factors) {
   const endNode = graph.nodes.get(endId);
   const heuristic = (id) => {
     const n = graph.nodes.get(id);
@@ -123,13 +129,13 @@ function findRoute(graph, startId, endId, level) {
 
   while (heap.size > 0) {
     const { id: current } = heap.pop();
-    if (current === endId) return reconstruct(cameFrom, endId, level);
+    if (current === endId) return reconstruct(cameFrom, endId, factors);
     if (closed.has(current)) continue;
     closed.add(current);
 
     for (const edge of graph.adj.get(current) || []) {
       if (closed.has(edge.to)) continue;
-      const tentative = gScore.get(current) + edgeTime(edge, level);
+      const tentative = gScore.get(current) + edgeTime(edge, factors);
       if (tentative < (gScore.get(edge.to) ?? Infinity)) {
         gScore.set(edge.to, tentative);
         cameFrom.set(edge.to, { prev: current, edge });
@@ -140,7 +146,7 @@ function findRoute(graph, startId, endId, level) {
   return null; // зам олдсонгүй
 }
 
-function reconstruct(cameFrom, endId, level) {
+function reconstruct(cameFrom, endId, factors) {
   const edges = [];
   let cur = endId;
   while (cameFrom.has(cur)) {
@@ -157,7 +163,7 @@ function reconstruct(cameFrom, endId, level) {
 
   for (const edge of edges) {
     totalDist += edge.dist;
-    totalTime += edgeTime(edge, level);
+    totalTime += edgeTime(edge, factors);
     byClass[ROAD_CLASS[edge.highway] || "minor"] += edge.dist;
     const pts = geometry.length > 0 ? edge.geometry.slice(1) : edge.geometry;
     geometry.push(...pts);
@@ -167,8 +173,8 @@ function reconstruct(cameFrom, endId, level) {
 }
 
 /** Өгсөн маршрутыг өөр түгжрэлийн түвшинд явбал хэдэн секунд болохыг тооцно. */
-function timeAtLevel(edges, level) {
+function timeWithFactors(edges, factors) {
   let t = 0;
-  for (const edge of edges) t += edgeTime(edge, level);
+  for (const edge of edges) t += edgeTime(edge, factors);
   return t;
 }

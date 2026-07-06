@@ -40,13 +40,16 @@ function setStatus(msg, isError = false) {
 
 /* ---------- Түгжрэлийн түвшин ---------- */
 
-/** Улаанбаатарын цагаар оргил ачааллын үеийг тодорхойлно. */
+/** Улаанбаатарын цагаар гараг/цагийг гаргана (AI загварын оролт). */
+function ubNow() {
+  const ub = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ulaanbaatar" }));
+  return { dow: ub.getDay(), hour: ub.getHours() + ub.getMinutes() / 60 };
+}
+
+/** AI загваргүй үеийн fallback: цагийн хуваарьт суурилсан түвшин. */
 function autoTrafficLevel() {
-  const now = new Date();
-  const ub = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Ulaanbaatar" }));
-  const day = ub.getDay(); // 0 = Ням
-  const h = ub.getHours() + ub.getMinutes() / 60;
-  const weekend = day === 0 || day === 6;
+  const { dow, hour: h } = ubNow();
+  const weekend = dow === 0 || dow === 6;
 
   if (!weekend) {
     if ((h >= 7.5 && h < 10) || (h >= 16.5 && h < 20)) return "jam";
@@ -66,16 +69,36 @@ const LEVEL_NAMES = {
   jam: "🔴 Түгжрэлтэй",
 };
 
-function effectiveLevel() {
-  return state.level === "auto" ? autoTrafficLevel() : state.level;
+/**
+ * Маршрут бодоход ашиглах коэффициентүүд.
+ * auto горимд AI загвар одоогийн гараг/цагаас таамаглана;
+ * загвар ачаалагдаагүй бол цагийн хуваарийн fallback,
+ * гараар сонгосон бол тухайн түвшний тогтмол коэффициент.
+ */
+function effectiveFactors() {
+  if (state.level === "auto" && TrafficModel.ready) {
+    const { dow, hour } = ubNow();
+    return { factors: TrafficModel.predictFactors(dow, hour), label: "🤖 AI таамаглал" };
+  }
+  const level = state.level === "auto" ? autoTrafficLevel() : state.level;
+  return { factors: levelFactors(level), label: LEVEL_NAMES[level] };
 }
 
 function updateAutoInfo() {
   const info = $("auto-level-info");
-  if (state.level === "auto") {
-    info.textContent = `Одоо УБ-д: ${LEVEL_NAMES[autoTrafficLevel()]} гэж тооцож байна.`;
-  } else {
+  if (state.level !== "auto") {
     info.textContent = "";
+    return;
+  }
+  if (TrafficModel.ready) {
+    const { dow, hour } = ubNow();
+    const f = TrafficModel.predictFactors(dow, hour);
+    const pct = (x) => Math.round(x * 100);
+    info.textContent =
+      `🤖 AI: одоо гол зам ${pct(f.major)}%, дунд зам ${pct(f.mid)}%, ` +
+      `хорооллын зам ${pct(f.minor)}% хурдтай гэж таамаглаж байна.`;
+  } else {
+    info.textContent = `Одоо УБ-д: ${LEVEL_NAMES[autoTrafficLevel()]} гэж тооцож байна.`;
   }
 }
 
@@ -275,8 +298,8 @@ async function calcRoute() {
 
   try {
     const graph = await ensureGraph();
-    const level = effectiveLevel();
-    setStatus(`Маршрут тооцоолж байна… (${LEVEL_NAMES[level]})`);
+    const { factors, label } = effectiveFactors();
+    setStatus(`Маршрут тооцоолж байна… (${label})`);
     await new Promise((r) => setTimeout(r, 10));
 
     const s = state.start.getLatLng();
@@ -289,15 +312,15 @@ async function calcRoute() {
     }
 
     // 1. Түгжрэл тооцсон ухаалаг маршрут
-    const smart = findRoute(graph, startNode.id, endNode.id, level);
+    const smart = findRoute(graph, startNode.id, endNode.id, factors);
     if (!smart) throw new Error("Хоёр цэгийг холбох зам олдсонгүй");
 
     // 2. Чөлөөт үеийн (гол замын) маршрут — одоогийн түгжрэлээр хэр удаан
     //    явахыг нь тооцож харьцуулна.
-    const main = findRoute(graph, startNode.id, endNode.id, "free");
-    const mainTimeNow = timeAtLevel(main.edges, level);
+    const main = findRoute(graph, startNode.id, endNode.id, levelFactors("free"));
+    const mainTimeNow = timeWithFactors(main.edges, factors);
 
-    drawResults(smart, main, mainTimeNow, level);
+    drawResults(smart, main, mainTimeNow, factors, label);
     setStatus("");
   } catch (err) {
     setStatus(err.message, true);
@@ -307,7 +330,7 @@ async function calcRoute() {
   }
 }
 
-function drawResults(smart, main, mainTimeNow, level) {
+function drawResults(smart, main, mainTimeNow, factors, label) {
   // Гол замын маршрутыг доор нь бүдэг зурна
   state.mainLine = L.polyline(main.geometry, {
     color: "#7f8fa6",
@@ -337,8 +360,8 @@ function drawResults(smart, main, mainTimeNow, level) {
   const savedMin = Math.round((mainTimeNow - smart.totalTime) / 60);
   const savingsEl = $("savings");
   if (savedMin >= 1) {
-    savingsEl.textContent = `✨ Жижиг замаар тойрсноор ~${savedMin} минут хэмнэнэ (${LEVEL_NAMES[level]})`;
-  } else if (level === "free" || level === "normal") {
+    savingsEl.textContent = `✨ Жижиг замаар тойрсноор ~${savedMin} минут хэмнэнэ (${label})`;
+  } else if (factors.major >= 0.7) {
     savingsEl.textContent = "Одоо түгжрэл багатай тул гол замаар явахад хангалттай хурдан.";
   } else {
     savingsEl.textContent = "Энэ чиглэлд гол зам одоо ч хамгийн хурдан хувилбар байна.";
@@ -348,3 +371,115 @@ function drawResults(smart, main, mainTimeNow, level) {
 }
 
 $("route-btn").addEventListener("click", calcRoute);
+
+/* ---------- 🤖 AI загвар ба бодит өгөгдөл цуглуулалт ---------- */
+
+function updateCollectInfo() {
+  const n = Calibration.sampleCount();
+  $("collect-info").textContent =
+    n > 0
+      ? `Цуглуулсан хэмжилт: ${n}. Экспортолж ml/data/-д хийгээд train.py ажиллуулбал загвар сайжирна.`
+      : "Жолоодох үедээ хэмжилт эхлүүлбэл апп таны явдаг замын бодит хурдыг сурна.";
+}
+
+TrafficModel.load()
+  .then((meta) => {
+    $("model-status").textContent =
+      `Идэвхтэй ✅ — ${meta.n_samples.toLocaleString()} хэмжилтээр сургасан, ` +
+      `алдаа (RMSE) ±${Math.round(meta.val_rmse * 100)}%. ` +
+      `Гараг, цагаас замын ангилал бүрийн хурдыг таамаглана.`;
+    updateAutoInfo();
+  })
+  .catch((err) => {
+    $("model-status").textContent =
+      `Загвар ачаалагдсангүй (${err.message}) — цагийн хуваарийн fallback ашиглана.`;
+  });
+updateCollectInfo();
+
+/* Жолоодлогын горим: GPS-ээр бодит хурд хэмжиж, ойролцоох замын
+   ангилалтай харьцуулан speed_ratio хэмжилт цуглуулна. */
+const drive = { watchId: null, capWatchId: null, lastSample: 0 };
+
+function handlePosition(coords) {
+  const now = Date.now();
+  if (now - drive.lastSample < 5000) return; // 5 сек тутам дээж
+  if (coords.speed == null || coords.accuracy > 40) return;
+
+  const graph = state.graph;
+  if (!graph) return;
+  const near = nearestNode(graph, coords.latitude, coords.longitude);
+  if (!near.id || near.dist > 60) return; // граф доторх замаас хол
+
+  // Тухайн уулзварын ирмэгүүдээс замын ангиллыг тогтооно
+  const edges = graph.adj.get(near.id) || [];
+  if (edges.length === 0) return;
+  const edge = edges[0];
+  const cls = ROAD_CLASS[edge.highway] || "minor";
+  const freeMs = ((BASE_SPEED[edge.highway] || 20) * 1000) / 3600;
+  const ratio = Math.min(Math.max(coords.speed / freeMs, 0.05), 1);
+
+  const { dow, hour } = ubNow();
+  Calibration.addSample(cls, dow, hour, ratio);
+  drive.lastSample = now;
+  updateCollectInfo();
+}
+
+async function startDrive() {
+  const cap = window.Capacitor?.Plugins?.Geolocation;
+  if (cap) {
+    drive.capWatchId = await cap.watchPosition(
+      { enableHighAccuracy: true },
+      (pos, err) => { if (pos) handlePosition(pos.coords); }
+    );
+  } else if (navigator.geolocation) {
+    drive.watchId = navigator.geolocation.watchPosition(
+      (pos) => handlePosition(pos.coords),
+      () => setStatus("GPS хэмжилт авч чадсангүй", true),
+      { enableHighAccuracy: true }
+    );
+  } else {
+    throw new Error("Байршил тогтоох боломжгүй төхөөрөмж");
+  }
+}
+
+function stopDrive() {
+  const cap = window.Capacitor?.Plugins?.Geolocation;
+  if (drive.capWatchId != null) cap?.clearWatch({ id: drive.capWatchId });
+  if (drive.watchId != null) navigator.geolocation.clearWatch(drive.watchId);
+  drive.capWatchId = drive.watchId = null;
+}
+
+$("drive-btn").addEventListener("click", async () => {
+  const btn = $("drive-btn");
+  if (drive.watchId != null || drive.capWatchId != null) {
+    stopDrive();
+    btn.textContent = "🚙 Хэмжилт эхлүүлэх";
+    btn.classList.remove("active");
+    return;
+  }
+  if (!state.graph) {
+    setStatus("Эхлээд маршрут гаргавал зам таних граф ачаалагдана", true);
+    return;
+  }
+  try {
+    await startDrive();
+    btn.textContent = "⏹ Хэмжилт зогсоох";
+    btn.classList.add("active");
+    setStatus("");
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+});
+
+$("export-btn").addEventListener("click", () => {
+  if (Calibration.sampleCount() === 0) {
+    setStatus("Экспортлох хэмжилт алга — эхлээд 🚙 горимоор цуглуул", true);
+    return;
+  }
+  const blob = new Blob([Calibration.exportCsv()], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "collected_traffic.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});

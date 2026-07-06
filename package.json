@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "serve": "python3 -m http.server 8000 --directory www",
+    "ml:data": "python3 ml/generate_data.py",
+    "ml:train": "python3 ml/train.py",
     "sync": "cap sync",
     "android": "cap run android",
     "ios": "cap run ios",

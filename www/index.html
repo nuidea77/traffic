@@ -35,13 +35,23 @@
     <section class="panel">
       <h2>🚦 Түгжрэлийн түвшин</h2>
       <div id="traffic-levels" class="btn-group">
-        <button data-level="auto"   class="level-btn active" title="Улаанбаатарын цагаар оргил ачааллын цагийг автоматаар тодорхойлно">🕐 Одоогийн цагаар</button>
+        <button data-level="auto"   class="level-btn active" title="AI загвар одоогийн гараг, цагаас түгжрэлийг таамаглана">🤖 AI (одоогийн цагаар)</button>
         <button data-level="free"   class="level-btn">🟢 Чөлөөтэй</button>
         <button data-level="normal" class="level-btn">🟡 Хэвийн</button>
         <button data-level="busy"   class="level-btn">🟠 Ачаалалтай</button>
         <button data-level="jam"    class="level-btn">🔴 Түгжрэлтэй</button>
       </div>
       <p id="auto-level-info" class="hint"></p>
+    </section>
+
+    <section class="panel">
+      <h2>🤖 AI загвар</h2>
+      <p id="model-status" class="hint">Загвар ачаалж байна…</p>
+      <div class="btn-group">
+        <button id="drive-btn">🚙 Хэмжилт эхлүүлэх</button>
+        <button id="export-btn">⬇ CSV экспорт</button>
+      </div>
+      <p id="collect-info" class="hint"></p>
     </section>
 
     <button id="route-btn" disabled>🧭 Маршрут гаргах</button>
@@ -78,6 +88,7 @@
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="js/graph.js"></script>
   <script src="js/router.js"></script>
+  <script src="js/model.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
