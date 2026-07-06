@@ -8,82 +8,76 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div id="sidebar">
-    <header>
-      <h1>🚗 Түгжрэл тойрох маршрут</h1>
-      <p class="subtitle">Түгжрэлтэй үед гэр хороолол болон хорооллын жижиг туслах замуудыг ашиглан хамгийн хурдан маршрутыг гаргана.</p>
-    </header>
+  <div id="map"></div>
 
-    <section class="panel">
-      <h2>📍 Эхлэх ба очих цэг</h2>
-      <div class="point-row">
-        <span class="dot dot-start"></span>
-        <input id="start-input" type="text" placeholder="Эхлэх цэг хайх… (эсвэл газрын зураг дээр дарна)" />
-        <button id="start-search" title="Хайх">🔍</button>
-        <button id="locate-btn" title="Миний байршлаас эхлэх">📍</button>
+  <!-- Дээд хөвөгч самбар -->
+  <div id="top-panel">
+    <div class="brand">Түгжрэл тойрох <span class="brand-badge">AI</span></div>
+
+    <div class="point-row">
+      <span class="dot dot-start"></span>
+      <input id="start-input" type="text" placeholder="Эхлэх цэг…" />
+      <button id="start-search" class="icon-btn" title="Хайх">🔍</button>
+      <button id="locate-btn" class="icon-btn" title="Миний байршлаас эхлэх">📍</button>
+    </div>
+    <div class="point-row">
+      <span class="dot dot-end"></span>
+      <input id="end-input" type="text" placeholder="Очих цэг…" />
+      <button id="end-search" class="icon-btn" title="Хайх">🔍</button>
+      <button id="clear-btn" class="icon-btn" title="Цэгүүдийг арилгах">✕</button>
+    </div>
+    <div id="search-results"></div>
+
+    <div id="traffic-levels" class="chips">
+      <button data-level="auto"   class="level-btn chip active" title="AI загвар одоогийн гараг, цагаас түгжрэлийг таамаглана">🤖 AI</button>
+      <button data-level="free"   class="level-btn chip">🟢 Чөлөөтэй</button>
+      <button data-level="normal" class="level-btn chip">🟡 Хэвийн</button>
+      <button data-level="busy"   class="level-btn chip">🟠 Ачаалалтай</button>
+      <button data-level="jam"    class="level-btn chip">🔴 Түгжрэлтэй</button>
+    </div>
+    <p id="auto-level-info" class="mini"></p>
+
+    <button id="route-btn" disabled>Маршрут гаргах</button>
+
+    <details id="ai-details">
+      <summary>🤖 AI загвар ба хэмжилт</summary>
+      <p id="model-status" class="mini">Загвар ачаалж байна…</p>
+      <div class="chips">
+        <button id="drive-btn" class="chip">🚙 Хэмжилт эхлүүлэх</button>
+        <button id="export-btn" class="chip">⬇ CSV экспорт</button>
       </div>
-      <div class="point-row">
-        <span class="dot dot-end"></span>
-        <input id="end-input" type="text" placeholder="Очих цэг хайх… (эсвэл газрын зураг дээр дарна)" />
-        <button id="end-search" title="Хайх">🔍</button>
-      </div>
-      <div id="search-results"></div>
-      <p class="hint">Газрын зураг дээр 1 дэх даралт = эхлэх цэг, 2 дахь даралт = очих цэг. Маркерыг чирж зөөж болно.</p>
-      <button id="clear-btn" class="secondary">✖ Цэгүүдийг арилгах</button>
-    </section>
+      <p id="collect-info" class="mini"></p>
+    </details>
+  </div>
 
-    <section class="panel">
-      <h2>🚦 Түгжрэлийн түвшин</h2>
-      <div id="traffic-levels" class="btn-group">
-        <button data-level="auto"   class="level-btn active" title="AI загвар одоогийн гараг, цагаас түгжрэлийг таамаглана">🤖 AI (одоогийн цагаар)</button>
-        <button data-level="free"   class="level-btn">🟢 Чөлөөтэй</button>
-        <button data-level="normal" class="level-btn">🟡 Хэвийн</button>
-        <button data-level="busy"   class="level-btn">🟠 Ачаалалтай</button>
-        <button data-level="jam"    class="level-btn">🔴 Түгжрэлтэй</button>
-      </div>
-      <p id="auto-level-info" class="hint"></p>
-    </section>
+  <div id="status"></div>
 
-    <section class="panel">
-      <h2>🤖 AI загвар</h2>
-      <p id="model-status" class="hint">Загвар ачаалж байна…</p>
-      <div class="btn-group">
-        <button id="drive-btn">🚙 Хэмжилт эхлүүлэх</button>
-        <button id="export-btn">⬇ CSV экспорт</button>
-      </div>
-      <p id="collect-info" class="hint"></p>
-    </section>
-
-    <button id="route-btn" disabled>🧭 Маршрут гаргах</button>
-    <div id="status"></div>
-
-    <section id="results" class="panel hidden">
-      <h2>📊 Үр дүн</h2>
-      <div class="route-card route-card-smart">
-        <div class="route-title"><span class="line-swatch swatch-smart"></span> Ухаалаг маршрут <small>(түгжрэл тооцсон)</small></div>
-        <div class="route-stats">
-          <span id="smart-time" class="big"></span>
-          <span id="smart-dist"></span>
+  <!-- Доод хөвөгч үр дүнгийн карт -->
+  <div id="results" class="bottom-card hidden">
+    <div class="card-head">
+      <div class="thumb">⚡</div>
+      <div class="card-main">
+        <div class="card-title">Ухаалаг маршрут</div>
+        <div class="stats-row">
+          <div class="stat"><span>Зай</span><b id="smart-dist"></b></div>
+          <div class="stat"><span>Хугацаа</span><b id="smart-time"></b></div>
+          <div class="stat"><span>Хэмнэлт</span><b id="saved-min">—</b></div>
         </div>
-        <div id="smart-breakdown" class="breakdown"></div>
       </div>
-      <div class="route-card route-card-main">
-        <div class="route-title"><span class="line-swatch swatch-main"></span> Гол замын маршрут <small>(энгийн апп-ын санал)</small></div>
-        <div class="route-stats">
-          <span id="main-time" class="big"></span>
-          <span id="main-dist"></span>
-        </div>
+      <button id="card-toggle" class="card-arrow" title="Дэлгэрэнгүй">↗</button>
+    </div>
+    <div id="card-details" class="hidden">
+      <div id="smart-breakdown" class="breakdown"></div>
+      <div class="divider"></div>
+      <div class="compare">
+        <span class="line-swatch"></span>
+        Гол замын маршрут: <b id="main-time"></b> · <span id="main-dist"></span>
         <div id="main-breakdown" class="breakdown"></div>
       </div>
       <div id="savings" class="savings"></div>
-    </section>
-
-    <footer>
-      <p>Замын өгөгдөл: © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors · Overpass API</p>
-    </footer>
+      <p class="credit">© OpenStreetMap contributors · CARTO · Overpass API</p>
+    </div>
   </div>
-
-  <div id="map"></div>
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="js/graph.js"></script>

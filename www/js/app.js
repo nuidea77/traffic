@@ -13,10 +13,14 @@ const UB_CENTER = [47.9188, 106.9176];
 const UB_VIEWBOX = "106.55,48.10,107.25,47.75"; // Nominatim хайлтын хүрээ
 const MAX_BBOX_SPAN_KM = 28; // Overpass-д хэт том талбай татахаас хамгаална
 
-const map = L.map("map").setView(UB_CENTER, 12);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+const map = L.map("map", { zoomControl: false }).setView(UB_CENTER, 12);
+L.control.zoom({ position: "bottomright" }).addTo(map);
+// Дизайнд тохирсон харанхуй суурь зураг (CARTO dark)
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 19,
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  subdomains: "abcd",
+  attribution:
+    '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
 }).addTo(map);
 
 const state = {
@@ -116,18 +120,16 @@ setInterval(updateAutoInfo, 60000);
 
 /* ---------- Цэг сонгох ---------- */
 
-const startIcon = L.divIcon({
-  className: "",
-  html: '<div style="width:18px;height:18px;border-radius:50%;background:#2ecc71;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
-const endIcon = L.divIcon({
-  className: "",
-  html: '<div style="width:18px;height:18px;border-radius:50%;background:#e74c3c;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
+// Дизайны дагуу хоёр төгсгөл хоёулаа гэрэлтдэг неон цэг
+const neonIcon = () =>
+  L.divIcon({
+    className: "",
+    html: '<div class="neon-dot"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+const startIcon = neonIcon();
+const endIcon = neonIcon();
 
 function setPoint(which, latlng) {
   const icon = which === "start" ? startIcon : endIcon;
@@ -163,7 +165,7 @@ $("clear-btn").addEventListener("click", () => {
 });
 
 function clearRoutes() {
-  for (const key of ["smartLine", "mainLine"]) {
+  for (const key of ["smartLine", "smartGlow", "smartGlowWide", "mainLine", "routeTip"]) {
     if (state[key]) { map.removeLayer(state[key]); state[key] = null; }
   }
 }
@@ -331,22 +333,40 @@ async function calcRoute() {
 }
 
 function drawResults(smart, main, mainTimeNow, factors, label) {
-  // Гол замын маршрутыг доор нь бүдэг зурна
+  // Гол замын маршрутыг доор нь бүдэг тасархайгаар зурна
   state.mainLine = L.polyline(main.geometry, {
-    color: "#7f8fa6",
-    weight: 5,
-    opacity: 0.75,
-    dashArray: "8 8",
+    color: "#8a8a93",
+    weight: 4,
+    opacity: 0.55,
+    dashArray: "6 10",
   }).addTo(map);
 
+  // Ухаалаг маршрут: неон шар, гэрэлтэлтийг давхар зузаан шугамаар үүсгэнэ
+  const NEON = "#dcf548";
+  state.smartGlowWide = L.polyline(smart.geometry, {
+    color: NEON, weight: 22, opacity: 0.1, interactive: false,
+  }).addTo(map);
+  state.smartGlow = L.polyline(smart.geometry, {
+    color: NEON, weight: 11, opacity: 0.28, interactive: false,
+  }).addTo(map);
   state.smartLine = L.polyline(smart.geometry, {
-    color: "#2ecc71",
-    weight: 6,
-    opacity: 0.95,
+    color: NEON, weight: 4.5, opacity: 1,
+  }).addTo(map);
+
+  // Маршрутын дунд цэг дээр хугацаа/зайн tooltip
+  const midPt = smart.geometry[Math.floor(smart.geometry.length / 2)];
+  state.routeTip = L.marker(midPt, {
+    interactive: false,
+    icon: L.divIcon({
+      className: "",
+      html: `<div class="route-tip">${fmtTime(smart.totalTime)} · ${fmtDist(smart.totalDist)}</div>`,
+      iconSize: [0, 0],
+    }),
   }).addTo(map);
 
   map.fitBounds(state.smartLine.getBounds().extend(state.mainLine.getBounds()), {
-    padding: [40, 40],
+    paddingTopLeft: [50, 260],
+    paddingBottomRight: [50, 170],
   });
 
   $("smart-time").textContent = fmtTime(smart.totalTime);
@@ -358,6 +378,7 @@ function drawResults(smart, main, mainTimeNow, factors, label) {
   $("main-breakdown").innerHTML = breakdownHtml(main.byClass, main.totalDist);
 
   const savedMin = Math.round((mainTimeNow - smart.totalTime) / 60);
+  $("saved-min").textContent = savedMin >= 1 ? `~${savedMin} мин` : "—";
   const savingsEl = $("savings");
   if (savedMin >= 1) {
     savingsEl.textContent = `✨ Жижиг замаар тойрсноор ~${savedMin} минут хэмнэнэ (${label})`;
@@ -369,6 +390,12 @@ function drawResults(smart, main, mainTimeNow, factors, label) {
 
   $("results").classList.remove("hidden");
 }
+
+// Картын ↗ товч дэлгэрэнгүйг нээж хаана
+$("card-toggle").addEventListener("click", () => {
+  $("card-details").classList.toggle("hidden");
+  $("card-toggle").classList.toggle("open");
+});
 
 $("route-btn").addEventListener("click", calcRoute);
 
