@@ -10,6 +10,7 @@
 
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
 ];
@@ -76,6 +77,8 @@ out geom;`;
         method: "POST",
         body: "data=" + encodeURIComponent(q),
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        // Гацсан mirror дээр удаан хүлээлгүй дараагийнх руу шилжинэ
+        signal: AbortSignal.timeout(60000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

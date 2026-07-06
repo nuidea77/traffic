@@ -72,6 +72,30 @@ for (const [name, viewport] of [
     await page.route(/cartocdn\.com|tile\.openstreetmap\.org/, (route) =>
       route.fulfill({ contentType: "image/svg+xml", body: DARK_TILE })
     );
+  } else if (process.env.HTTPS_PROXY) {
+    // Egress-прокситой орчинд Chromium-ийн шууд холболт боломжгүй тул
+    // гадаад хүсэлтүүдийг Node-ийн fetch-ээр (прокси + CA-тай) дамжуулна.
+    await page.route(/^https:\/\//, async (route) => {
+      const req = route.request();
+      try {
+        const res = await fetch(req.url(), {
+          method: req.method(),
+          headers: {
+            "User-Agent": "traffic-app-screenshot",
+            ...(req.headers()["content-type"] && { "Content-Type": req.headers()["content-type"] }),
+          },
+          body: req.postDataBuffer() ?? undefined,
+        });
+        const body = Buffer.from(await res.arrayBuffer());
+        await route.fulfill({
+          status: res.status,
+          contentType: res.headers.get("content-type") || "application/octet-stream",
+          body,
+        });
+      } catch {
+        await route.abort();
+      }
+    });
   }
 
   await page.goto(base);
