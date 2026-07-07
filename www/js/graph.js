@@ -22,6 +22,21 @@ const ROUTABLE_HIGHWAYS =
   "living_street|service|track|motorway_link|trunk_link|primary_link|" +
   "secondary_link|tertiary_link";
 
+// Урт маршрутын дундах хэсэгт татах томоохон замууд — bbox том байхад
+// бүх жижиг замыг татвал хэт их өгөгдөл болдог тул шатлан хязгаарлана.
+const ARTERIAL_HIGHWAYS =
+  "motorway|trunk|primary|secondary|tertiary|unclassified|" +
+  "motorway_link|trunk_link|primary_link|secondary_link|tertiary_link";
+const TRUNK_HIGHWAYS =
+  "motorway|trunk|primary|secondary|" +
+  "motorway_link|trunk_link|primary_link|secondary_link";
+
+// Диагональ хэмжээгээр шатлал сонгоно (км)
+const DETAIL_SPAN_KM = 30;   // бүх замыг бүтэн хүрээгээр
+const ARTERIAL_SPAN_KM = 160; // корридорт arterial, захад бүх зам
+const MAX_SPAN_KM = 700;     // trunk корридор — үүнээс хэтэрвэл алдаа
+const ENDPOINT_DETAIL_M = 3000; // захын цэг орчмын дэлгэрэнгүй радиус
+
 const EARTH_R = 6371000;
 
 function haversine(lat1, lon1, lat2, lon2) {
@@ -34,18 +49,27 @@ function haversine(lat1, lon1, lat2, lon2) {
   return 2 * EARTH_R * Math.asin(Math.sqrt(a));
 }
 
-/** Эхлэх/очих цэгийг багтаасан, захаасаа нэмэлт зайтай bbox гаргана. */
-function computeBBox(a, b, padRatio = 0.35, minPadMeters = 1200) {
+/**
+ * Эхлэх/очих цэгийг багтаасан, захаасаа нэмэлт зайтай bbox гаргана.
+ * Хоёр цэг нэг шулуун дээр ойрхон байхад bbox хэт нарийсдаг тул хоёр
+ * тэнхлэгийг хоёр цэгийн шууд зайд (диагональд) пропорциональ тэлнэ —
+ * бодит зам ууль/гол тойрч алсуур гарах тохиолдлыг багтаахад чухал.
+ * expand нь зам олдоогүй үед хүрээг дахин тэлэх коэффициент.
+ */
+function computeBBox(a, b, padRatio = 0.35, minPadMeters = 1200, expand = 1) {
   let south = Math.min(a.lat, b.lat);
   let north = Math.max(a.lat, b.lat);
   let west = Math.min(a.lng, b.lng);
   let east = Math.max(a.lng, b.lng);
 
-  const latPad = Math.max((north - south) * padRatio, minPadMeters / 111320);
+  const directM = haversine(a.lat, a.lng, b.lat, b.lng);
+  const basePadM = Math.max(directM * 0.22 * expand, minPadMeters);
+
   const midLat = (south + north) / 2;
+  const latPad = Math.max((north - south) * padRatio, basePadM / 111320);
   const lonPad = Math.max(
     (east - west) * padRatio,
-    minPadMeters / (111320 * Math.cos((midLat * Math.PI) / 180))
+    basePadM / (111320 * Math.cos((midLat * Math.PI) / 180))
   );
   return {
     south: south - latPad,
@@ -60,10 +84,10 @@ function bboxKey(bbox) {
   return `${r(bbox.south)},${r(bbox.west)},${r(bbox.north)},${r(bbox.east)}`;
 }
 
-/** bbox доторх бүх машины замыг Overpass-аас татна. */
-async function fetchRoads(bbox, onProgress) {
-  const q = `[out:json][timeout:90];
-way["highway"~"^(${ROUTABLE_HIGHWAYS})$"]
+/** bbox доторх өгсөн төрлийн машины замуудыг Overpass-аас татна. */
+async function fetchRoads(bbox, onProgress, highways = ROUTABLE_HIGHWAYS) {
+  const q = `[out:json][timeout:120];
+way["highway"~"^(${highways})$"]
   ["access"!~"^(private|no)$"]
   ["motor_vehicle"!~"^(private|no)$"]
   (${bbox.south},${bbox.west},${bbox.north},${bbox.east});
@@ -91,6 +115,44 @@ out geom;`;
   throw new Error(
     `Замын өгөгдөл татаж чадсангүй (${lastErr?.message || "тодорхойгүй алдаа"})`
   );
+}
+
+/**
+ * Хоёр цэгийн зайнаас хамаарч татах стратеги (шатлал) сонгоно.
+ * Богино маршрутад бүх замыг, урт маршрутад дундах корридорт зөвхөн
+ * томоохон замуудыг, харин эхлэх/очих цэгийн орчимд бүх замыг татна —
+ * ингэснээр гэр хорооллоос гарах/орох хэсэг дэлгэрэнгүй хэвээр үлдэнэ.
+ */
+function routePlan(a, b, expand = 1) {
+  const directKm = haversine(a.lat, a.lng, b.lat, b.lng) / 1000;
+  if (directKm > MAX_SPAN_KM) {
+    throw new Error(`Хоёр цэг хэт хол байна (${Math.round(directKm)} км > ${MAX_SPAN_KM} км)`);
+  }
+  const bbox = computeBBox(a, b, 0.35, 1200, expand);
+  const spanKm = haversine(bbox.south, bbox.west, bbox.north, bbox.east) / 1000;
+  const tier =
+    spanKm <= DETAIL_SPAN_KM ? "detail" : spanKm <= ARTERIAL_SPAN_KM ? "arterial" : "trunk";
+  return { bbox, spanKm, tier, key: `${bboxKey(bbox)}:${tier}` };
+}
+
+/** routePlan-ий дагуу замуудыг татаж нэгтгэнэ (way id-гаар давхардлыг арилгана). */
+async function fetchRoadsForPlan(plan, a, b, onProgress) {
+  if (plan.tier === "detail") {
+    return fetchRoads(plan.bbox, onProgress);
+  }
+  const corridorFilter = plan.tier === "arterial" ? ARTERIAL_HIGHWAYS : TRUNK_HIGHWAYS;
+  onProgress?.(`Урт маршрут (${Math.round(plan.spanKm)} км): гол замын сүлжээ татаж байна…`);
+  const ways = new Map();
+  for (const w of await fetchRoads(plan.bbox, onProgress, corridorFilter)) {
+    ways.set(w.id, w);
+  }
+  // Эхлэх/очих цэгийн орчимд бүх (жижиг) замыг нэмж татна
+  for (const p of [a, b]) {
+    const local = computeBBox(p, p, 0, ENDPOINT_DETAIL_M);
+    onProgress?.("Захын цэгийн орчмын замуудыг татаж байна…");
+    for (const w of await fetchRoads(local, onProgress)) ways.set(w.id, w);
+  }
+  return [...ways.values()];
 }
 
 /**

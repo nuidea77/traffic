@@ -11,7 +11,6 @@
 
 const UB_CENTER = [47.9188, 106.9176];
 const UB_VIEWBOX = "106.55,48.10,107.25,47.75"; // Nominatim хайлтын хүрээ
-const MAX_BBOX_SPAN_KM = 28; // Overpass-д хэт том талбай татахаас хамгаална
 
 const map = L.map("map", { zoomControl: false }).setView(UB_CENTER, 12);
 L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -274,25 +273,22 @@ function breakdownHtml(byClass, totalDist) {
   );
 }
 
-async function ensureGraph() {
-  const bbox = computeBBox(state.start.getLatLng(), state.end.getLatLng());
-  const spanKm = haversine(bbox.south, bbox.west, bbox.north, bbox.east) / 1000;
-  if (spanKm > MAX_BBOX_SPAN_KM) {
-    throw new Error(
-      "Хоёр цэгийн хоорондох зай хэт их байна. Хот доторх богино маршрут сонгоно уу."
-    );
-  }
-  const key = bboxKey(bbox);
-  if (state.graphKey === key && state.graph) return state.graph;
+async function ensureGraph(expand = 1) {
+  const s = state.start.getLatLng();
+  const e = state.end.getLatLng();
+  // Зайнаас хамаарч шатлал сонгоно: богино бол бүх зам, урт бол
+  // корридорт гол замууд + захын цэгүүдийн орчимд бүх зам
+  const plan = routePlan(s, e, expand);
+  if (state.graphKey === plan.key && state.graph) return state.graph;
 
-  const ways = await fetchRoads(bbox, setStatus);
+  const ways = await fetchRoadsForPlan(plan, s, e, setStatus);
   setStatus(`Граф байгуулж байна… (${ways.length} зам)`);
   await new Promise((r) => setTimeout(r, 10)); // UI шинэчлэгдэх зай
   const graph = buildGraph(ways);
   if (graph.nodes.size === 0) throw new Error("Энэ хэсэгт замын өгөгдөл олдсонгүй");
 
   state.graph = graph;
-  state.graphKey = key;
+  state.graphKey = plan.key;
   return graph;
 }
 
@@ -304,26 +300,35 @@ async function calcRoute() {
   $("results").classList.add("hidden");
 
   try {
-    const graph = await ensureGraph();
     const { factors, label } = effectiveFactors();
-    setStatus(`Маршрут тооцоолж байна… (${label})`);
-    await new Promise((r) => setTimeout(r, 10));
-
     const s = state.start.getLatLng();
     const e = state.end.getLatLng();
-    const startNode = nearestNode(graph, s.lat, s.lng);
-    const endNode = nearestNode(graph, e.lat, e.lng);
-    if (!startNode.id || !endNode.id) throw new Error("Ойролцоо зам олдсонгүй");
-    if (startNode.dist > 1500 || endNode.dist > 1500) {
-      throw new Error("Сонгосон цэг замаас хэт хол байна (>1.5 км)");
-    }
 
-    // 1. Түгжрэл тооцсон ухаалаг маршрут
-    const smart = findRoute(graph, startNode.id, endNode.id, factors);
+    // Бодит зам (уул, гол тойрдог) bbox-оос гадуур гарсан байж болзошгүй
+    // тул зам олдоогүй үед хайлтын хүрээг шатлан тэлж дахин оролдоно.
+    let smart = null;
+    let graph = null;
+    let startNode, endNode;
+    for (const expand of [1, 2.5, 5]) {
+      graph = await ensureGraph(expand);
+      setStatus(`Маршрут тооцоолж байна… (${label})`);
+      await new Promise((r) => setTimeout(r, 10));
+
+      startNode = nearestNode(graph, s.lat, s.lng);
+      endNode = nearestNode(graph, e.lat, e.lng);
+      if (!startNode.id || !endNode.id) throw new Error("Ойролцоо зам олдсонгүй");
+      if (startNode.dist > 1500 || endNode.dist > 1500) {
+        throw new Error("Сонгосон цэг замаас хэт хол байна (>1.5 км)");
+      }
+
+      smart = findRoute(graph, startNode.id, endNode.id, factors);
+      if (smart) break;
+      setStatus("Зам олдсонгүй — хайлтын хүрээг тэлж байна…");
+    }
     if (!smart) throw new Error("Хоёр цэгийг холбох зам олдсонгүй");
 
-    // 2. Чөлөөт үеийн (гол замын) маршрут — одоогийн түгжрэлээр хэр удаан
-    //    явахыг нь тооцож харьцуулна.
+    // Чөлөөт үеийн (гол замын) маршрут — одоогийн түгжрэлээр хэр удаан
+    // явахыг нь тооцож харьцуулна.
     const main = findRoute(graph, startNode.id, endNode.id, levelFactors("free"));
     const mainTimeNow = timeWithFactors(main.edges, factors);
 
